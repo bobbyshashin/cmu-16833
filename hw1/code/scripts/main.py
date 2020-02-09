@@ -75,25 +75,25 @@ def main():
     map_utils = MapUtils(occupancy_map, map_resolution)
     logfile = open(src_path_log, 'r')
 
-    motion_model = MotionModel(1.0, 1.0, 1.0, 1.0)
+    motion_model = MotionModel(0.5, 0.5, 0.5, 0.5)
     sensor_model = SensorModel(occupancy_map)
     resampler = Resampling()
 
-    num_particles = 10
+    num_particles = 3
     X_bar = init_particles_freespace(num_particles, occupancy_map)
 
     vis_flag = 1
     precompute_raycasting = 0
-    test_raycasting = 1
+    test_raycasting = 0
 
     if test_raycasting:
-        test_x = 6500
-        test_y = 6000
-        test_theta = 0
+        test_x = 4000
+        test_y = 4000
+        test_theta = 2.0
         rays = sensor_model.rayCastingLookUp(
             np.array([test_x, test_y, test_theta]))
         # rays = sensor_model.rayCasting([test_x, test_y, test_theta])
-        print(rays)
+        # print(rays)
         map_utils.visualizeRays([test_x, test_y, test_theta], rays)
         plt.pause(20)
         return
@@ -156,12 +156,12 @@ def main():
             """
             if (meas_type == "L"):
                 z_t = ranges
-                print("sensor model")
+                # print("sensor model")
                 w_t, z_expected_arr = sensor_model.beam_range_finder_model(
                     z_t, x_t1)
 
-                map_utils.visualizeRays(
-                    [x_t1[0], x_t1[1], x_t1[2]], z_expected_arr)
+                # map_utils.visualizeRays(
+                #     [x_t1[0], x_t1[1], x_t1[2]], z_expected_arr)
                 # plt.pause(2)
                 # w_t = 1/num_particles
                 X_bar_new[m, :] = np.hstack((x_t1, w_t))
@@ -175,7 +175,7 @@ def main():
         RESAMPLING
         """
         # X_bar = resampler.low_variance_sampler(X_bar)
-        # X_bar = resampler.multinomial_sampler(X_bar)
+        X_bar = resampler.multinomial_sampler(X_bar)
 
         if vis_flag:
             print("vis")

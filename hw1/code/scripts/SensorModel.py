@@ -20,7 +20,7 @@ class SensorModel:
     def __init__(self, occupancy_map, use_precomputed_rays=True):
 
         # take the range measurement data every 5 degrees
-        self.resolution = 5
+        self.resolution = 20
         self.range_stride = 10.0
         # from right to left, 180 degrees, counter-clockwise
         self.laser_fov = 180
@@ -112,9 +112,9 @@ class SensorModel:
         return reading
 
     def rayCasting(self, laser_pose_in_map):
-        # if self.use_precomputed_rays:
-        #     return self.rayCastingLookUp(laser_pose_in_map)
-
+        if self.use_precomputed_rays:
+            return self.rayCastingLookUp(laser_pose_in_map)
+        print("Should not be here")
         x = laser_pose_in_map[0]
         y = laser_pose_in_map[1]
 
@@ -157,10 +157,17 @@ class SensorModel:
 
         theta_start = int(degrees(laser_pose_in_map[2]))
         theta_end = int(theta_start+self.laser_fov)
-
-        readings = self.raycasting_table[x, y, theta_start:theta_end]
+        split = (theta_end >= 360)
+        if split:
+            theta_end = theta_end - 360
+        if not split:
+            readings = self.raycasting_table[x, y, theta_start:theta_end]
+        else:
+            readings = np.append(
+                self.raycasting_table[x, y, theta_start:-1], self.raycasting_table[x, y, 0:theta_end])
         readings = np.flip(readings)
-        print("Laser lookup shape: ", readings.shape)
+        # print("Laser lookup shape: ", readings.shape)
+        # print(x, y, theta_start)
         return readings
 
     def probHit(self, z_t, z_expected):

@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import math
+import Utils
 
 
 class MotionModel:
@@ -49,7 +50,7 @@ class MotionModel:
         x = x_t0[0] + trans_est * math.cos(x_t0[2]+rot1_est)
         y = x_t0[1] + trans_est * math.sin(x_t0[2]+rot1_est)
         theta = x_t0[2] + rot1_est + rot2_est
-
+        theta = Utils.trimTheta(theta)
         return np.array([x, y, theta])
 
 
