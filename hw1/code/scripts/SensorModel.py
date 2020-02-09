@@ -9,6 +9,7 @@ import pdb
 from MapReader import MapReader
 from Utils import integrateGaussian, calcGaussian
 
+
 class SensorModel:
 
     """
@@ -20,7 +21,7 @@ class SensorModel:
 
         # take the range measurement data every 5 degrees
         self.resolution = 5
-        self.range_stride = 10
+        self.range_stride = 10.0
         # from right to left, 180 degrees, counter-clockwise
         self.laser_fov = 180
         self.laser_max = 8191
@@ -34,18 +35,21 @@ class SensorModel:
         # if 0 <= occupancy_map[i][j] < 0.3, we may regard cell (i, j) as freespace
         self.occupied_threshold = 0.1
         self.occupancy_map = occupancy_map
-        self.map_resolution = 10
+        self.map_resolution = 10.0
         self.map_x = occupancy_map.shape[0]
         self.map_y = occupancy_map.shape[1]
 
-
         self.use_precomputed_rays = use_precomputed_rays
         if use_precomputed_rays:
-            self.raycasting_table = np.fromfile("../data/raycasting_table.dms").reshape(self.map_x, self.map_y, 360)
-        print(np.sum(self.raycasting_table))
+            self.raycasting_table = np.load(
+                "../data/raycasting_table.npy")
+            print("Loaded raycasting lookup table of size: ",
+                  self.raycasting_table.shape)
+            print(np.sum(self.raycasting_table))
 
     def precomputeRayCasting(self):
-        all_readings = np.ones((self.map_x, self.map_y, 360)) * self.laser_max
+        all_readings = np.ones((self.map_x, self.map_y, 360),
+                               dtype=np.float32) * self.laser_max
         for x in range(self.map_x):
             for y in range(self.map_y):
                 for theta_deg in range(360):
@@ -53,11 +57,17 @@ class SensorModel:
                     max_range = int(self.laser_max / self.range_stride)+1
                     for i in range(max_range):
                         segment_length = self.range_stride * i
-                        x_new = x * self.map_resolution + segment_length * cos(theta_rad)
-                        y_new = y + segment_length * sin(theta_rad)
+                        x_new = (x + 0.5) * self.map_resolution + \
+                            segment_length * cos(theta_rad)
+                        y_new = (y + 0.5) * self.map_resolution + \
+                            segment_length * sin(theta_rad)
 
-                        x_new = int(min(self.map_x-1, max(x_new / self.map_resolution, 0)))
-                        y_new = int(min(self.map_y-1, max(y_new / self.map_resolution, 0)))
+                        # ground_truth = self.rayCastingSingle(
+                        # [x_new, y_new, theta_rad])
+                        x_new = int(
+                            min(self.map_x-1, max(x_new / self.map_resolution, 0)))
+                        y_new = int(
+                            min(self.map_y-1, max(y_new / self.map_resolution, 0)))
 
                         prob_occupied = self.occupancy_map[x_new, y_new]
                         if prob_occupied == -1 or prob_occupied >= self.occupied_threshold:
@@ -65,23 +75,46 @@ class SensorModel:
                             # to handle -1? which is "unknown"
                             # unknown treated as obstacle for now
                             all_readings[x, y, theta_deg] = segment_length
+                            # error = ground_truth - segment_length
+                            # if np.abs(error) > 10:
+                            #     print(error)
                             break
-            print("x = ", x)
-        all_readings.tofile("raycasting_table")
+            print("Processed " + str(x) + " out of " + str(self.map_x) + " rows")
+
+        np.save("../data/raycasting_table2.npy", all_readings)
         return
 
-    def rayCastingLookUp(self, laser_pose_in_map):
-        x = int(min(self.map_x-1, max(laser_pose_in_map[0] / self.map_resolution, 0)))
-        y = int(min(self.map_y-1, max(laser_pose_in_map[1] / self.map_resolution, 0)))
+    def rayCastingSingle(self, laser_pose_in_map):
+        x = laser_pose_in_map[0]
+        y = laser_pose_in_map[1]
+        theta = laser_pose_in_map[2]
+        reading = self.laser_max
 
-        theta_start = int(degrees(laser_pose_in_map[2]))
-        theta_end = int(theta_start+self.laser_fov)
+        max_range = int(self.laser_max / self.range_stride)+1
+        for j in range(max_range):
+            # compute line equation and extend the ray
+            segment_length = self.range_stride * j
 
-        readings = self.raycasting_table[x][y][theta_start:theta_end]
-        print("Laser lookup shape: ", readings.shape)
-        return readings
+            x_new = x + segment_length * cos(theta)
+            y_new = y + segment_length * sin(theta)
+
+            x_new = int(
+                min(self.map_x-1, max(x_new / self.map_resolution, 0)))
+            y_new = int(
+                min(self.map_y-1, max(y_new / self.map_resolution, 0)))
+            # may vectorize here
+            prob_occupied = self.occupancy_map[x_new, y_new]
+            if prob_occupied == -1 or prob_occupied >= self.occupied_threshold:
+                    # if we hit an obstacle, return a reading (segment length)
+                    # to handle -1? which is "unknown"
+                    # unknown treated as obstacle for now
+                return segment_length
+        return reading
 
     def rayCasting(self, laser_pose_in_map):
+        # if self.use_precomputed_rays:
+        #     return self.rayCastingLookUp(laser_pose_in_map)
+
         x = laser_pose_in_map[0]
         y = laser_pose_in_map[1]
 
@@ -91,7 +124,7 @@ class SensorModel:
             theta_degree = degrees(laser_pose_in_map[2])
             # may need to truncate to -pi to pi here
             theta = radians(theta_degree + (self.laser_fov-i-1))
-        
+
             max_range = int(self.laser_max / self.range_stride)+1
             for j in range(max_range):
                 # compute line equation and extend the ray
@@ -100,8 +133,10 @@ class SensorModel:
                 x_new = x + segment_length * cos(theta)
                 y_new = y + segment_length * sin(theta)
 
-                x_new = int(min(self.map_x-1, max(x_new / self.map_resolution, 0)))
-                y_new = int(min(self.map_y-1, max(y_new / self.map_resolution, 0)))
+                x_new = int(
+                    min(self.map_x-1, max(x_new / self.map_resolution, 0)))
+                y_new = int(
+                    min(self.map_y-1, max(y_new / self.map_resolution, 0)))
                 # may vectorize here
                 prob_occupied = self.occupancy_map[x_new, y_new]
                 if prob_occupied == -1 or prob_occupied >= self.occupied_threshold:
@@ -114,9 +149,24 @@ class SensorModel:
                 readings[i] = self.laser_max
         return readings
 
+    def rayCastingLookUp(self, laser_pose_in_map):
+        x = int(
+            min(self.map_x-1, max(laser_pose_in_map[0] / self.map_resolution, 0)))
+        y = int(
+            min(self.map_y-1, max(laser_pose_in_map[1] / self.map_resolution, 0)))
+
+        theta_start = int(degrees(laser_pose_in_map[2]))
+        theta_end = int(theta_start+self.laser_fov)
+
+        readings = self.raycasting_table[x, y, theta_start:theta_end]
+        readings = np.flip(readings)
+        print("Laser lookup shape: ", readings.shape)
+        return readings
+
     def probHit(self, z_t, z_expected):
         if z_t >= 0 and z_t <= self.laser_max:
-            normalizer = integrateGaussian(z_expected, self.sigma_hit, 0.0, self.laser_max)
+            normalizer = integrateGaussian(
+                z_expected, self.sigma_hit, 0.0, self.laser_max)
             return normalizer * calcGaussian(z_expected, self.sigma_hit, z_t)
         else:
             return 0
