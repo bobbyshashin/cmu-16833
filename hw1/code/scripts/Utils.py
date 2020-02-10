@@ -34,6 +34,13 @@ def trimTheta(theta):
         trimmed = trimmed - 2*math.pi
     return trimmed
 
+def trimTheta_vec(theta):
+    trimmed = theta
+    # trimmed[trimmed < 0] += 2*math.pi
+    # trimmed[trimmed >= 2*math.pi] -= 2*math.pi
+    trimmed = np.fmod(2*math.pi + np.fmod(trimmed, 2*math.pi), 2*math.pi)
+    return trimmed
+
 
 if __name__ == "__main__":
     v = integrateGaussian(8.0, 3.0, 11.0, 14.0)

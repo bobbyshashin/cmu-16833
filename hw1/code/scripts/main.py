@@ -79,7 +79,7 @@ def main():
     sensor_model = SensorModel(occupancy_map)
     resampler = Resampling()
 
-    num_particles = 3
+    num_particles = 100
     X_bar = init_particles_freespace(num_particles, occupancy_map)
 
     vis_flag = 1
@@ -128,6 +128,8 @@ def main():
             odometry_laser = meas_vals[3:6]
             # 180 range measurement values from single laser scan
             ranges = meas_vals[6:-1]
+        # else:
+        #     continue
 
         print("Processing time step " + str(time_idx) +
               " at time " + str(time_stamp) + "s")
@@ -139,14 +141,20 @@ def main():
 
         X_bar_new = np.zeros((num_particles, 4), dtype=np.float64)
         u_t1 = odometry_robot
-        # print(u_t1)
+
+        """
+            MOTION MODEL
+        """
+        X_t0 = X_bar[:, 0:3]
+        X_t1 = motion_model.update_vec(u_t0, u_t1, X_t0)
+
         for m in range(0, num_particles):
 
             """
             MOTION MODEL
             """
-            x_t0 = X_bar[m, 0:3]
-            x_t1 = motion_model.update(u_t0, u_t1, x_t0)
+            # x_t0 = X_bar[m, 0:3]
+            # x_t1 = motion_model.update(u_t0, u_t1, x_t0)
 
             # map_utils.visualizeRays(
             #     [x_t1[0], x_t1[1], x_t1[2]], z_expected_arr)
@@ -158,15 +166,15 @@ def main():
                 z_t = ranges
                 # print("sensor model")
                 w_t, z_expected_arr = sensor_model.beam_range_finder_model(
-                    z_t, x_t1)
+                    z_t, X_t1[m,:])
 
                 # map_utils.visualizeRays(
                 #     [x_t1[0], x_t1[1], x_t1[2]], z_expected_arr)
                 # plt.pause(2)
                 # w_t = 1/num_particles
-                X_bar_new[m, :] = np.hstack((x_t1, w_t))
+                X_bar_new[m, :] = np.hstack((X_t1[m,:], w_t))
             else:
-                X_bar_new[m, :] = np.hstack((x_t1, X_bar[m, 3]))
+                X_bar_new[m, :] = np.hstack((X_t1[m,:], X_bar[m, 3]))
             # X_bar_new[m,:] = np.hstack((x_t1, X_bar[m,3]))
         X_bar = X_bar_new
         u_t0 = u_t1
@@ -178,6 +186,7 @@ def main():
         X_bar = resampler.multinomial_sampler(X_bar)
 
         if vis_flag:
+            # if time_idx % 10 == 0:
             print("vis")
             # visualize_map(occupancy_map)
             map_utils.visualize_timestep(X_bar, time_idx)
