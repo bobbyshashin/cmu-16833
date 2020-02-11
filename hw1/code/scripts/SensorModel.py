@@ -175,8 +175,9 @@ class SensorModel:
 
     def probHit(self, z_t, z_expected):
         if z_t >= 0 and z_t <= self.laser_max:
-            normalizer = integrateGaussian(
-                z_expected, self.sigma_hit, 0.0, self.laser_max)
+            # normalizer = integrateGaussian(
+            #     z_expected, self.sigma_hit, 0.0, self.laser_max)
+            normalizer = 1.0
             return normalizer * calcGaussian(z_expected, self.sigma_hit, z_t)
         else:
             return 0
