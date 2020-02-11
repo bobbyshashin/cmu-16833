@@ -25,11 +25,11 @@ class SensorModel:
         # from right to left, 180 degrees, counter-clockwise
         self.laser_fov = 180
         self.laser_max = 8191
-        self.z_hit = 1.0
-        self.z_short = 1.0
-        self.z_max = 1.0
-        self.z_rand = 1.0
-        self.sigma_hit = 1.0
+        self.z_hit = 0.4
+        self.z_short = 0.4
+        self.z_max = 0.1
+        self.z_rand = 0.1
+        self.sigma_hit = 2.0
         self.lambda_short = 1.0
 
         # if 0 <= occupancy_map[i][j] < 0.3, we may regard cell (i, j) as freespace
@@ -155,7 +155,9 @@ class SensorModel:
         y = int(
             min(self.map_y-1, max(laser_pose_in_map[1] / self.map_resolution, 0)))
 
-        theta_start = int(degrees(laser_pose_in_map[2]))
+        theta_start = int(degrees(laser_pose_in_map[2] - math.pi / 2.0))
+        if theta_start < 0:
+            theta_start = theta_start + 360
         theta_end = int(theta_start+self.laser_fov)
         split = (theta_end >= 360)
         if split:
@@ -167,7 +169,8 @@ class SensorModel:
                 self.raycasting_table[x, y, theta_start:-1], self.raycasting_table[x, y, 0:theta_end])
         readings = np.flip(readings)
         # print("Laser lookup shape: ", readings.shape)
-        # print(x, y, theta_start)
+        if readings.shape[0] == 0:
+            print(x, y, theta_start, theta_end)
         return readings
 
     def probHit(self, z_t, z_expected):

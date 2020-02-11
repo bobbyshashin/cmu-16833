@@ -2,6 +2,7 @@ import numpy as np
 import math
 from matplotlib import pyplot as plt
 from matplotlib import figure as fig
+import Utils
 
 
 class MapUtils:
@@ -43,12 +44,13 @@ class MapUtils:
         plt.axis([0, 800, 800, 0])
         x = robot_pose[0] / 10
         y = robot_pose[1] / 10
-        theta = robot_pose[2]
+        theta = robot_pose[2]-math.pi / 2.0
         # print("Robot pose: (" + str(x) + ", " + str(y) + ", " + str(theta))
         step_size = 5
         for i in range(0, 180, step_size):
             # may need to restrict to -pi to pi here
             curr_theta = theta + math.radians(180-i-1)
+            curr_theta = Utils.trimTheta(curr_theta)
             new_x = x + laser_readings[i] * np.cos(curr_theta) / 10.0
             new_y = y + laser_readings[i] * np.sin(curr_theta) / 10.0
             new_x = int(min(self._map_x-1, max(new_x, 0)))

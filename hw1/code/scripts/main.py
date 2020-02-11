@@ -7,50 +7,12 @@ from MapUtils import MapUtils
 from MotionModel import MotionModel
 from SensorModel import SensorModel
 from Resampling import Resampling
-
+from InitParticles import init_particles_freespace, init_particles_random, init_particles_fixed_region
 from matplotlib import pyplot as plt
 from matplotlib import figure as fig
 import matplotlib.lines as mlines
 import time
 import math
-
-
-def init_particles_random(num_particles, occupancy_map):
-
-    # initialize [x, y, theta] positions in world_frame for all particles
-    y0_vals = np.random.uniform(0, 7000, (num_particles, 1))
-    x0_vals = np.random.uniform(3000, 7000, (num_particles, 1))
-    theta0_vals = np.random.uniform(-3.14, 3.14, (num_particles, 1))
-
-    # initialize weights for all particles
-    w0_vals = np.ones((num_particles, 1), dtype=np.float64)
-    w0_vals = w0_vals / num_particles
-
-    X_bar_init = np.hstack((x0_vals, y0_vals, theta0_vals, w0_vals))
-
-    return X_bar_init
-
-
-def init_particles_freespace(num_particles, occupancy_map):
-
-    # initialize [x, y, theta] positions in world_frame for all particles
-    map_resolution = 10
-
-    # initialize [x, y, theta] positions in world_frame for all particles
-    freespace = np.argwhere(occupancy_map == 0)
-    freespace = freespace * map_resolution
-    # freespace[:,[0,1]] = freespace[:,[1,0]]
-    rand_idx = np.random.uniform(0, len(freespace), num_particles).astype(int)
-    xy0_vals = freespace[rand_idx]
-    theta0_vals = np.random.uniform(-3.14, 3.14, (num_particles, 1))
-
-    # initialize weights for all particles
-    w0_vals = np.ones((num_particles, 1), dtype=np.float64)
-    w0_vals = w0_vals / num_particles
-
-    X_bar_init = np.hstack((xy0_vals, theta0_vals, w0_vals))
-
-    return X_bar_init
 
 
 def main():
@@ -75,21 +37,61 @@ def main():
     map_utils = MapUtils(occupancy_map, map_resolution)
     logfile = open(src_path_log, 'r')
 
-    motion_model = MotionModel(0.5, 0.5, 0.5, 0.5)
+    motion_model = MotionModel(0.0, 0.0, 0.0, 0.0)
     sensor_model = SensorModel(occupancy_map)
     resampler = Resampling()
 
-    num_particles = 100
-    X_bar = init_particles_freespace(num_particles, occupancy_map)
-
+    # Enables visualization
     vis_flag = 1
+    # Enables raycasting visualization for every frame
+    vis_raycasting = 0
+    # Re-precompute the raycasting lookup table
     precompute_raycasting = 0
+    # Test raycasting and visualize with a single particle
     test_raycasting = 0
+    # Test with a single particle at known start location
+    test_one_particle = 0
+    # Only test motion model
+    test_motion_model_only = 1
+    # Use vectorized motion model and measurement model
+    use_vectorization = 1
+    # Init mode: 0 = freespace, 1 = random, 2 = fixed region, -1 = do nothing
+    init_mode = 0
+
+    X_bar = None
+    num_particles = 500
+
+    # initial starting location
+    test_x = 4000
+    test_y = 4150
+    test_theta = 4.75
+
+    if precompute_raycasting:
+        sensor_model.precomputeRayCasting()
+        return
+
+    if test_one_particle:
+        init_mode = -1
+        use_vectorization = 0
+        num_particles = 1
+        X_bar = init_particles_freespace(num_particles, occupancy_map)
+        # Test for one
+        X_bar[:, 0] = test_x
+        X_bar[:, 1] = test_y
+        X_bar[:, 2] = test_theta
+
+    if init_mode == 0:
+        X_bar = init_particles_freespace(num_particles, occupancy_map)
+    elif init_mode == 1:
+        X_bar = init_particles_random(num_particles, occupancy_map)
+    elif init_mode == 2:
+        upper_left = np.array([0, 0])
+        lower_right = np.array([300, 300])
+        X_bar = init_particles_fixed_region(
+            num_particles, occupancy_map, upper_left, lower_right)
 
     if test_raycasting:
-        test_x = 4000
-        test_y = 4000
-        test_theta = 2.0
+        # Use the precompute table
         rays = sensor_model.rayCastingLookUp(
             np.array([test_x, test_y, test_theta]))
         # rays = sensor_model.rayCasting([test_x, test_y, test_theta])
@@ -97,12 +99,10 @@ def main():
         map_utils.visualizeRays([test_x, test_y, test_theta], rays)
         plt.pause(20)
         return
+
     if vis_flag:
         map_utils.visualize_map()
 
-    if precompute_raycasting:
-        sensor_model.precomputeRayCasting()
-        return
     """
     Monte Carlo Localization Algorithm : Main Loop
     """
@@ -120,16 +120,11 @@ def main():
         odometry_robot = meas_vals[0:3]
         time_stamp = meas_vals[-1]
 
-        # if ((time_stamp <= 0.0) | (meas_type == "O")): # ignore pure odometry measurements for now (faster debugging)
-        # continue
-
         if (meas_type == "L"):
             # [x, y, theta] coordinates of laser in odometry frame
             odometry_laser = meas_vals[3:6]
             # 180 range measurement values from single laser scan
             ranges = meas_vals[6:-1]
-        # else:
-        #     continue
 
         print("Processing time step " + str(time_idx) +
               " at time " + str(time_stamp) + "s")
@@ -142,40 +137,59 @@ def main():
         X_bar_new = np.zeros((num_particles, 4), dtype=np.float64)
         u_t1 = odometry_robot
 
-        """
-            MOTION MODEL
-        """
-        X_t0 = X_bar[:, 0:3]
-        X_t1 = motion_model.update_vec(u_t0, u_t1, X_t0)
-
-        for m in range(0, num_particles):
-
+        if use_vectorization:
             """
-            MOTION MODEL
+                MOTION MODEL
             """
-            # x_t0 = X_bar[m, 0:3]
-            # x_t1 = motion_model.update(u_t0, u_t1, x_t0)
+            X_t0 = X_bar[:, 0:3]
+            X_t1 = motion_model.update_vec(u_t0, u_t1, X_t0)
+            for m in range(0, num_particles):
+                # we may need to vectorize sensor model here as well
+                if not test_motion_model_only:
+                    """
+                    SENSOR MODEL
+                    """
+                    if (meas_type == "L"):
+                        z_t = ranges
+                        # print("sensor model")
+                        w_t, z_expected_arr = sensor_model.beam_range_finder_model(
+                            z_t, X_t1[m, :])
 
-            # map_utils.visualizeRays(
-            #     [x_t1[0], x_t1[1], x_t1[2]], z_expected_arr)
-            # plt.pause(2)
-            """
-            SENSOR MODEL
-            """
-            if (meas_type == "L"):
-                z_t = ranges
-                # print("sensor model")
-                w_t, z_expected_arr = sensor_model.beam_range_finder_model(
-                    z_t, X_t1[m,:])
+                        X_bar_new[m, :] = np.hstack((X_t1[m, :], w_t))
+                    else:
+                        X_bar_new[m, :] = np.hstack((X_t1[m, :], X_bar[m, 3]))
+                else:  # test with motion model only
+                    X_bar_new[m, :] = np.hstack((X_t1[m, :], X_bar[m, 3]))
 
-                # map_utils.visualizeRays(
-                #     [x_t1[0], x_t1[1], x_t1[2]], z_expected_arr)
-                # plt.pause(2)
-                # w_t = 1/num_particles
-                X_bar_new[m, :] = np.hstack((X_t1[m,:], w_t))
-            else:
-                X_bar_new[m, :] = np.hstack((X_t1[m,:], X_bar[m, 3]))
-            # X_bar_new[m,:] = np.hstack((x_t1, X_bar[m,3]))
+        else:  # not vectorization
+            for m in range(0, num_particles):
+
+                """
+                MOTION MODEL
+                """
+                x_t0 = X_bar[m, 0:3]
+                x_t1 = motion_model.update(u_t0, u_t1, x_t0)
+
+                if not test_motion_model_only:
+                    """
+                    SENSOR MODEL
+                    """
+                    if (meas_type == "L"):
+                        z_t = ranges
+                        # print("sensor model")
+                        w_t, z_expected_arr = sensor_model.beam_range_finder_model(
+                            z_t, x_t1)
+                        if vis_raycasting:
+                            map_utils.visualizeRays(
+                                [x_t1[0], x_t1[1], x_t1[2]], z_expected_arr)
+                            plt.pause(2)
+                        # w_t = 1/num_particles
+                        X_bar_new[m, :] = np.hstack((x_t1, w_t))
+                    else:
+                        X_bar_new[m, :] = np.hstack((x_t1, X_bar[m, 3]))
+                else:
+                    X_bar_new[m, :] = np.hstack((x_t1, X_bar[m, 3]))
+
         X_bar = X_bar_new
         u_t0 = u_t1
 
@@ -187,7 +201,7 @@ def main():
 
         if vis_flag:
             # if time_idx % 10 == 0:
-            print("vis")
+            # print("vis")
             # visualize_map(occupancy_map)
             map_utils.visualize_timestep(X_bar, time_idx)
 

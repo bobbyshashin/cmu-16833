@@ -34,6 +34,7 @@ def trimTheta(theta):
         trimmed = trimmed - 2*math.pi
     return trimmed
 
+
 def trimTheta_vec(theta):
     trimmed = theta
     # trimmed[trimmed < 0] += 2*math.pi
