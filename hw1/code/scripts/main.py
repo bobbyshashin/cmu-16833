@@ -52,7 +52,7 @@ def main():
     # Test with a single particle at known start location
     test_one_particle = 0
     # Only test motion model
-    test_motion_model_only = 1
+    test_motion_model_only = 0
     # Use vectorized motion model and measurement model
     use_vectorization = 1
     # Init mode: 0 = freespace, 1 = random, 2 = fixed region, -1 = do nothing
@@ -103,6 +103,10 @@ def main():
     if vis_flag:
         map_utils.visualize_map()
 
+    # X_bar[0, 0] = test_x
+    # X_bar[0, 1] = test_y
+    # X_bar[0, 2] = test_theta
+
     """
     Monte Carlo Localization Algorithm : Main Loop
     """
@@ -143,23 +147,21 @@ def main():
             """
             X_t0 = X_bar[:, 0:3]
             X_t1 = motion_model.update_vec(u_t0, u_t1, X_t0)
-            for m in range(0, num_particles):
-                # we may need to vectorize sensor model here as well
-                if not test_motion_model_only:
-                    """
-                    SENSOR MODEL
-                    """
-                    if (meas_type == "L"):
-                        z_t = ranges
-                        # print("sensor model")
-                        w_t, z_expected_arr = sensor_model.beam_range_finder_model(
-                            z_t, X_t1[m, :])
 
-                        X_bar_new[m, :] = np.hstack((X_t1[m, :], w_t))
-                    else:
-                        X_bar_new[m, :] = np.hstack((X_t1[m, :], X_bar[m, 3]))
-                else:  # test with motion model only
-                    X_bar_new[m, :] = np.hstack((X_t1[m, :], X_bar[m, 3]))
+            """
+                SENSOR MODEL
+            """
+            if not test_motion_model_only:
+                if (meas_type == "L"):
+                    z_t = ranges
+                    W_t, z_expected_arr = sensor_model.beam_range_finder_model_vec(
+                        z_t, X_t1)
+                    X_bar_new = np.hstack((X_t1, W_t.reshape(-1,1)))
+                    # print("W_t: ", W_t/float(np.sum(W_t)))
+                else: 
+                    X_bar_new = np.hstack((X_t1, X_bar[:, 3].reshape(-1,1)))
+            else:  # test with motion model only
+                X_bar_new = np.hstack((X_t1, X_bar[:, 3].reshape(-1,1)))
 
         else:  # not vectorization
             for m in range(0, num_particles):

@@ -149,6 +149,13 @@ class SensorModel:
                 readings[i] = self.laser_max
         return readings
 
+    def rayCasting_vec(self, laser_pose_in_map):
+        if self.use_precomputed_rays:
+            return self.rayCastingLookUp_vec(laser_pose_in_map)
+        print("Should not be here")
+        ''' the rest of rayCasting code are not vectorized yet'''
+        return readings
+
     def rayCastingLookUp(self, laser_pose_in_map):
         x = int(
             min(self.map_x-1, max(laser_pose_in_map[0] / self.map_resolution, 0)))
@@ -166,9 +173,35 @@ class SensorModel:
             readings = self.raycasting_table[x, y, theta_start:theta_end]
         else:
             readings = np.append(
-                self.raycasting_table[x, y, theta_start:-1], self.raycasting_table[x, y, 0:theta_end])
+                self.raycasting_table[x, y, theta_start:], self.raycasting_table[x, y, 0:theta_end])
         readings = np.flip(readings)
         # print("Laser lookup shape: ", readings.shape)
+        if readings.shape[0] == 0:
+            print(x, y, theta_start, theta_end)
+        return readings
+
+    def rayCastingLookUp_vec(self, laser_pose_in_map):
+        num_particles = laser_pose_in_map.shape[0]
+
+        x = np.minimum(self.map_x-1, np.maximum(laser_pose_in_map[:, 0] / self.map_resolution, 0)).astype(int)
+        y = np.minimum(self.map_y-1, np.maximum(laser_pose_in_map[:, 1] / self.map_resolution, 0)).astype(int)
+
+        theta_start = np.degrees(laser_pose_in_map[:, 2] - (math.pi / 2.0)).astype(int)
+        theta_start[theta_start < 0] += 360
+        theta_end = (theta_start + self.laser_fov).astype(int)
+        split = (theta_end >= 360)
+        theta_end[split] -= 360
+
+        readings = np.zeros((num_particles, 180))
+        theta_table = self.raycasting_table[x, y, :]
+        for m in range(num_particles):
+            if not split[m]:
+                readings[m, :] = theta_table[m, theta_start[m]:theta_end[m]]
+            else:
+                readings[m, :] = np.append(
+                    theta_table[m, theta_start[m]:], theta_table[m, 0:theta_end[m]])
+            
+        readings = np.flip(readings, axis=1)
         if readings.shape[0] == 0:
             print(x, y, theta_start, theta_end)
         return readings
@@ -204,6 +237,17 @@ class SensorModel:
     def computeBelief(self, z_t, z_expected):
         return self.z_hit * self.probHit(z_t, z_expected) + self.z_short * self.probShort(z_t, z_expected) + self.z_max * self.probMax(z_t) + self.z_rand * self.probRand(z_t)
 
+    def probShort_vec(self, z_t, z_expected):
+        res = np.zeros_like(z_expected)
+        if z_t < 0:
+            return res
+        else:
+            res[z_t <= z_expected] = self.lambda_short * np.exp(-self.lambda_short * z_t) / (1.0 - np.exp(-self.lambda_short * z_expected[z_t <= z_expected]))
+            return res
+        
+    def computeBelief_vec(self, z_t, z_expected):
+        return self.z_hit * self.probHit(z_t, z_expected) + self.z_short * self.probShort_vec(z_t, z_expected) + self.z_max * self.probMax(z_t) + self.z_rand * self.probRand(z_t)
+
     def beam_range_finder_model(self, z_t1_arr, x_t1):
         """
         param[in] z_t1_arr : laser range readings [array of 180 values] at time t
@@ -227,8 +271,38 @@ class SensorModel:
         for i in range(n):
             k = 0 + self.resolution * i
             z = z_t1_arr[k]
-            z_expected = z_expected_arr[i]
+            z_expected = z_expected_arr[k]      # TODO: should use k here?
             q = q * self.computeBelief(z, z_expected)
+        # print(q)
+        return q, z_expected_arr
+
+    def beam_range_finder_model_vec(self, z_t1_arr, X_t1):
+        """
+        param[in] z_t1_arr : laser range readings [array of 180 values] at time t
+        param[in] X_t1 : particle state belief [x, y, theta] at time t [world_frame]
+        param[out] prob_zt1 : likelihood of a range scan zt1 at time t
+        """
+        num_particles = X_t1.shape[0]
+        # (x, y, theta) of the robot (r) wrt the world frame (w)
+        x_r_w = X_t1[:, 0]
+        y_r_w = X_t1[:, 1]
+        theta_r_w = X_t1[:, 2]
+        # (x, y, theta) of the laser (l) wrt the world frame (o)
+        x_l_w = x_r_w + 25.0 * np.cos(theta_r_w)
+        y_l_w = y_r_w + 25.0 * np.sin(theta_r_w)
+        theta_l_w = theta_r_w
+
+        pose_laser_map = np.stack((x_l_w, y_l_w, theta_l_w)).T
+        z_expected_arr = self.rayCasting_vec(pose_laser_map)
+
+        # q = 1.0
+        q = np.ones(num_particles).astype(float)
+        n = int(self.laser_fov / self.resolution)
+        for i in range(n):
+            k = 0 + self.resolution * i
+            z = z_t1_arr[k]
+            z_expected = z_expected_arr[:,k]      # TODO: should use k here?
+            q = q * self.computeBelief_vec(z, z_expected)
         # print(q)
         return q, z_expected_arr
 
