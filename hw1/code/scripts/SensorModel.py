@@ -174,7 +174,7 @@ class SensorModel:
         else:
             readings = np.append(
                 self.raycasting_table[x, y, theta_start:], self.raycasting_table[x, y, 0:theta_end])
-        readings = np.flip(readings)
+        # readings = np.flip(readings)
         # print("Laser lookup shape: ", readings.shape)
         if readings.shape[0] == 0:
             print(x, y, theta_start, theta_end)
@@ -201,7 +201,7 @@ class SensorModel:
                 readings[m, :] = np.append(
                     theta_table[m, theta_start[m]:], theta_table[m, 0:theta_end[m]])
             
-        readings = np.flip(readings, axis=1)
+        # readings = np.flip(readings, axis=1)
         if readings.shape[0] == 0:
             print(x, y, theta_start, theta_end)
         return readings

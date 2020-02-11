@@ -37,7 +37,7 @@ def main():
     map_utils = MapUtils(occupancy_map, map_resolution)
     logfile = open(src_path_log, 'r')
 
-    motion_model = MotionModel(0.0, 0.0, 0.0, 0.0)
+    motion_model = MotionModel(1e-5, 1e-5, 1e-5, 1e-5)
     sensor_model = SensorModel(occupancy_map)
     resampler = Resampling()
 
@@ -57,6 +57,8 @@ def main():
     use_vectorization = 1
     # Init mode: 0 = freespace, 1 = random, 2 = fixed region, -1 = do nothing
     init_mode = 0
+    # init all particles with x=test_x, y=test_y, and random theta
+    test_fix_xy = 1
 
     X_bar = None
     num_particles = 500
@@ -103,9 +105,10 @@ def main():
     if vis_flag:
         map_utils.visualize_map()
 
-    # X_bar[0, 0] = test_x
-    # X_bar[0, 1] = test_y
-    # X_bar[0, 2] = test_theta
+    if test_fix_xy:
+        X_bar[:, 0] = test_x
+        X_bar[:, 1] = test_y
+        # X_bar[0, 2] = test_theta
 
     """
     Monte Carlo Localization Algorithm : Main Loop
@@ -198,8 +201,8 @@ def main():
         """
         RESAMPLING
         """
-        # X_bar = resampler.low_variance_sampler(X_bar)
-        X_bar = resampler.multinomial_sampler(X_bar)
+        X_bar = resampler.low_variance_sampler(X_bar)
+        # X_bar = resampler.multinomial_sampler(X_bar)
 
         if vis_flag:
             # if time_idx % 10 == 0:
