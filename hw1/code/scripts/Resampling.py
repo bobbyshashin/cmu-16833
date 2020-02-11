@@ -41,8 +41,28 @@ class Resampling:
         """
         TODO : Add your code here
         """
-        
-        return X_bar_resampled
+        num_particles = X_bar.shape[0]
+        weights = X_bar[:, -1]
+        weights = weights/float(np.sum(weights))
+
+        X_bar_resampled = []
+        w_cumsum = np.cumsum(weights)
+        r = np.random.rand() / num_particles
+        c = weights[0]
+        i = 0
+
+        U = r + (np.arange(num_particles) / float(num_particles))
+
+        for u in U:
+            # print(u, c)
+            while u > c:
+                i += 1
+                c += weights[i]
+            X_bar_resampled.append(X_bar[i, :])
+            # print(i)
+
+        return np.array(X_bar_resampled)
+        # return X_bar_resampled
 
 if __name__ == "__main__":
     pass
