@@ -7,10 +7,11 @@ import math
 
 
 def integrateGaussian(mean, std, x1, x2):
-    def normal_distribution_function(x):
-        return scipy.stats.norm.pdf(x, mean, std)
+    # def normal_distribution_function(x):
+    #     return scipy.stats.norm.pdf(x, mean, std)
 
-    res, err = quad(normal_distribution_function, x1, x2)
+    # res, err = quad(normal_distribution_function, x1, x2)
+    return scipy.stats.norm.cdf(x2, mean, std) - scipy.stats.norm.pdf(x1, mean, std)
     return res
 
 

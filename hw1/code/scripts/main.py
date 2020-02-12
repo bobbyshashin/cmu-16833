@@ -37,7 +37,7 @@ def main():
     map_utils = MapUtils(occupancy_map, map_resolution)
     logfile = open(src_path_log, 'r')
 
-    motion_model = MotionModel(1e-5, 1e-5, 1e-5, 1e-5)
+    motion_model = MotionModel(1e-3, 1e-3, 1e-3, 1e-3)
     sensor_model = SensorModel(occupancy_map)
     resampler = Resampling()
 
@@ -58,12 +58,16 @@ def main():
     # Init mode: 0 = freespace, 1 = random, 2 = fixed region, -1 = do nothing
     init_mode = 0
     # init all particles with x=test_x, y=test_y, and random theta
-    test_fix_xy = 1
+    test_fix_xy = 0
 
     X_bar = None
-    num_particles = 500
+    num_particles = 1000
 
     # initial starting location
+    # test_x = 6500
+    # test_y = 6000
+    # test_theta = 0
+
     test_x = 4000
     test_y = 4150
     test_theta = 4.75
@@ -97,7 +101,7 @@ def main():
         rays = sensor_model.rayCastingLookUp(
             np.array([test_x, test_y, test_theta]))
         # rays = sensor_model.rayCasting([test_x, test_y, test_theta])
-        # print(rays)
+        print(rays)
         map_utils.visualizeRays([test_x, test_y, test_theta], rays)
         plt.pause(20)
         return
@@ -159,6 +163,8 @@ def main():
                     z_t = ranges
                     W_t, z_expected_arr = sensor_model.beam_range_finder_model_vec(
                         z_t, X_t1)
+                    W_t = -1.0 / np.log10(W_t)
+                    # print(W_t)
                     X_bar_new = np.hstack((X_t1, W_t.reshape(-1,1)))
                     # print("W_t: ", W_t/float(np.sum(W_t)))
                 else: 
@@ -184,6 +190,8 @@ def main():
                         # print("sensor model")
                         w_t, z_expected_arr = sensor_model.beam_range_finder_model(
                             z_t, x_t1)
+                        print("z_t", z_t)
+                        print("z_raycast", z_expected_arr)
                         if vis_raycasting:
                             map_utils.visualizeRays(
                                 [x_t1[0], x_t1[1], x_t1[2]], z_expected_arr)
@@ -201,8 +209,8 @@ def main():
         """
         RESAMPLING
         """
-        X_bar = resampler.low_variance_sampler(X_bar)
-        # X_bar = resampler.multinomial_sampler(X_bar)
+        # X_bar = resampler.low_variance_sampler(X_bar)
+        X_bar = resampler.multinomial_sampler(X_bar)
 
         if vis_flag:
             # if time_idx % 10 == 0:

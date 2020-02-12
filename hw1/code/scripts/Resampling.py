@@ -44,6 +44,7 @@ class Resampling:
         num_particles = X_bar.shape[0]
         weights = X_bar[:, -1]
         weights = weights/float(np.sum(weights))
+        # print(weights)
 
         X_bar_resampled = []
         w_cumsum = np.cumsum(weights)

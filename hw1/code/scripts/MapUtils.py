@@ -49,12 +49,12 @@ class MapUtils:
         step_size = 5
         for i in range(0, 180, step_size):
             # may need to restrict to -pi to pi here
-            curr_theta = theta + math.radians(180-i-1)
+            curr_theta = theta + math.radians(i)
             curr_theta = Utils.trimTheta(curr_theta)
             new_x = x + laser_readings[i] * np.cos(curr_theta) / 10.0
             new_y = y + laser_readings[i] * np.sin(curr_theta) / 10.0
             new_x = int(min(self._map_x-1, max(new_x, 0)))
-            new_y = int(min(self._map_x-1, max(new_y, 0)))
+            new_y = int(min(self._map_y-1, max(new_y, 0)))
             # Note that the above (x, y) are essentially (row, col) in numpy array
             # So we convert it to (y, x) for plt to plot
             ax.plot([y, new_y], [x, new_x])

@@ -20,17 +20,18 @@ class SensorModel:
     def __init__(self, occupancy_map, use_precomputed_rays=True):
 
         # take the range measurement data every 5 degrees
-        self.resolution = 20
+        self.resolution = 5
         self.range_stride = 10.0
         # from right to left, 180 degrees, counter-clockwise
         self.laser_fov = 180
         self.laser_max = 8191
-        self.z_hit = 0.4
-        self.z_short = 0.4
-        self.z_max = 0.1
-        self.z_rand = 0.1
-        self.sigma_hit = 2.0
-        self.lambda_short = 1.0
+        # self.laser_max = 8500
+        self.z_hit = 0.3
+        self.z_short = 0.298
+        self.z_max = 0.001
+        self.z_rand = 0.3
+        self.sigma_hit = 500
+        self.lambda_short = 1e-4
 
         # if 0 <= occupancy_map[i][j] < 0.3, we may regard cell (i, j) as freespace
         self.occupied_threshold = 0.1
@@ -210,8 +211,9 @@ class SensorModel:
         if z_t >= 0 and z_t <= self.laser_max:
             # normalizer = integrateGaussian(
             #     z_expected, self.sigma_hit, 0.0, self.laser_max)
+            # print(normalizer)
             normalizer = 1.0
-            return normalizer * calcGaussian(z_expected, self.sigma_hit, z_t)
+            return 1.0 / normalizer * calcGaussian(z_expected, self.sigma_hit, z_t)
         else:
             return 0
 
