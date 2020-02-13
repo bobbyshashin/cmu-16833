@@ -37,7 +37,7 @@ def main():
     map_utils = MapUtils(occupancy_map, map_resolution)
     logfile = open(src_path_log, 'r')
 
-    motion_model = MotionModel(1e-3, 1e-3, 1e-3, 1e-3)
+    motion_model = MotionModel(1e-5, 1e-5, 1e-5, 1e-5)
     sensor_model = SensorModel(occupancy_map)
     resampler = Resampling()
 
@@ -61,7 +61,7 @@ def main():
     test_fix_xy = 0
 
     X_bar = None
-    num_particles = 1000
+    num_particles = 2000
 
     # initial starting location
     # test_x = 6500
@@ -136,6 +136,8 @@ def main():
             odometry_laser = meas_vals[3:6]
             # 180 range measurement values from single laser scan
             ranges = meas_vals[6:-1]
+        # else:
+        #     continue
 
         print("Processing time step " + str(time_idx) +
               " at time " + str(time_stamp) + "s")
@@ -164,7 +166,8 @@ def main():
                     W_t, z_expected_arr = sensor_model.beam_range_finder_model_vec(
                         z_t, X_t1)
                     W_t = -1.0 / np.log10(W_t)
-                    # print(W_t)
+                    # print("z_t: ", z_t)
+                    # print("z_expected_arr: ", z_expected_arr)
                     X_bar_new = np.hstack((X_t1, W_t.reshape(-1,1)))
                     # print("W_t: ", W_t/float(np.sum(W_t)))
                 else: 
@@ -209,8 +212,8 @@ def main():
         """
         RESAMPLING
         """
-        # X_bar = resampler.low_variance_sampler(X_bar)
-        X_bar = resampler.multinomial_sampler(X_bar)
+        X_bar = resampler.low_variance_sampler(X_bar)
+        # X_bar = resampler.multinomial_sampler(X_bar)
 
         if vis_flag:
             # if time_idx % 10 == 0:

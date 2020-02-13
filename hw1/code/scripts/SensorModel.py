@@ -26,12 +26,19 @@ class SensorModel:
         self.laser_fov = 180
         self.laser_max = 8191
         # self.laser_max = 8500
-        self.z_hit = 0.3
-        self.z_short = 0.298
-        self.z_max = 0.001
-        self.z_rand = 0.3
-        self.sigma_hit = 500
-        self.lambda_short = 1e-4
+        z_hit = 0.2
+        z_short = 0.17
+        z_max = 0.015
+        z_rand = 0.35
+        z_array = np.array([z_hit, z_short, z_max, z_rand], dtype=float)
+        z_array = z_array / np.sum(z_array)
+        self.sigma_hit = 95
+        self.lambda_short = 5e-2
+
+        self.z_hit = z_array[0]
+        self.z_short = z_array[1]
+        self.z_max = z_array[2]
+        self.z_rand = z_array[3]
 
         # if 0 <= occupancy_map[i][j] < 0.3, we may regard cell (i, j) as freespace
         self.occupied_threshold = 0.1
@@ -209,10 +216,10 @@ class SensorModel:
 
     def probHit(self, z_t, z_expected):
         if z_t >= 0 and z_t <= self.laser_max:
-            # normalizer = integrateGaussian(
-            #     z_expected, self.sigma_hit, 0.0, self.laser_max)
+            normalizer = integrateGaussian(
+                z_expected, self.sigma_hit, 0.0, self.laser_max)
             # print(normalizer)
-            normalizer = 1.0
+            # normalizer = 1.0
             return 1.0 / normalizer * calcGaussian(z_expected, self.sigma_hit, z_t)
         else:
             return 0

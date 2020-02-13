@@ -11,8 +11,8 @@ def integrateGaussian(mean, std, x1, x2):
     #     return scipy.stats.norm.pdf(x, mean, std)
 
     # res, err = quad(normal_distribution_function, x1, x2)
-    return scipy.stats.norm.cdf(x2, mean, std) - scipy.stats.norm.pdf(x1, mean, std)
-    return res
+    return scipy.stats.norm.cdf(x2, mean, std) - scipy.stats.norm.cdf(x1, mean, std)
+    # return res
 
 
 def calcGaussian(mean, std, x):
