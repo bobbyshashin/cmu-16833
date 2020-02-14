@@ -3,6 +3,8 @@ from numpy import cos, sin
 from scipy.integrate import quad
 import scipy.stats
 import math
+from matplotlib import pyplot as plt
+
 # integrates the gaussian distribution from x1 to x2
 
 
@@ -43,6 +45,14 @@ def trimTheta_vec(theta):
     trimmed = np.fmod(2*math.pi + np.fmod(trimmed, 2*math.pi), 2*math.pi)
     return trimmed
 
+def plot_belief(sensor_model):
+    x = np.linspace(0, sensor_model.laser_max)
+    y = [sensor_model.computeBelief(z_t, sensor_model.laser_max/2.) for z_t in x]
+    plt.figure()
+    plt.plot(x, y)
+    plt.xlim((0, sensor_model.laser_max))
+    # plt.ylim((0,1))
+    plt.show()
 
 if __name__ == "__main__":
     v = integrateGaussian(8.0, 3.0, 11.0, 14.0)

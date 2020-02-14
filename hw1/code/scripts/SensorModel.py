@@ -27,9 +27,9 @@ class SensorModel:
         self.laser_max = 8191
         # self.laser_max = 8500
         z_hit = 0.2
-        z_short = 0.17
+        z_short = 0.15
         z_max = 0.015
-        z_rand = 0.35
+        z_rand = 0.15
         z_array = np.array([z_hit, z_short, z_max, z_rand], dtype=float)
         z_array = z_array / np.sum(z_array)
         self.sigma_hit = 95

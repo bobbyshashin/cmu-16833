@@ -13,6 +13,7 @@ from matplotlib import figure as fig
 import matplotlib.lines as mlines
 import time
 import math
+from Utils import plot_belief
 
 
 def main():
@@ -59,9 +60,11 @@ def main():
     init_mode = 0
     # init all particles with x=test_x, y=test_y, and random theta
     test_fix_xy = 0
+    # plot sensor model belief
+    plot_sensor_belief = 0
 
     X_bar = None
-    num_particles = 2000
+    num_particles = 3000
 
     # initial starting location
     # test_x = 6500
@@ -74,6 +77,10 @@ def main():
 
     if precompute_raycasting:
         sensor_model.precomputeRayCasting()
+        return
+
+    if plot_sensor_belief:
+        plot_belief(sensor_model)
         return
 
     if test_one_particle:
@@ -216,10 +223,10 @@ def main():
         # X_bar = resampler.multinomial_sampler(X_bar)
 
         if vis_flag:
-            # if time_idx % 10 == 0:
+            if time_idx % 10 == 0:
             # print("vis")
             # visualize_map(occupancy_map)
-            map_utils.visualize_timestep(X_bar, time_idx)
+                map_utils.visualize_timestep(X_bar, time_idx)
 
 
 if __name__ == "__main__":
