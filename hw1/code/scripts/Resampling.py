@@ -1,6 +1,7 @@
 import numpy as np
 import pdb
 
+
 class Resampling:
 
     """
@@ -9,19 +10,12 @@ class Resampling:
     """
 
     def __init__(self):
-        """
-        TODO : Initialize resampling process parameters here
-        """
+        pass
 
     def multinomial_sampler(self, X_bar):
-
         """
         param[in] X_bar : [num_particles x 4] sized array containing [x, y, theta, wt] values for all particles
         param[out] X_bar_resampled : [num_particles x 4] sized array containing [x, y, theta, wt] values for resampled set of particles
-        """
-
-        """
-        TODO : Add your code here
         """
         num_particles = X_bar.shape[0]
         weights = X_bar[:, -1]
@@ -32,14 +26,9 @@ class Resampling:
         return X_bar_resampled
 
     def low_variance_sampler(self, X_bar):
-
         """
         param[in] X_bar : [num_particles x 4] sized array containing [x, y, theta, wt] values for all particles
         param[out] X_bar_resampled : [num_particles x 4] sized array containing [x, y, theta, wt] values for resampled set of particles
-        """
-
-        """
-        TODO : Add your code here
         """
         num_particles = X_bar.shape[0]
         weights = X_bar[:, -1]
@@ -47,7 +36,6 @@ class Resampling:
         # print(weights)
 
         X_bar_resampled = []
-        w_cumsum = np.cumsum(weights)
         r = np.random.rand() / num_particles
         c = weights[0]
         i = 0
@@ -55,15 +43,13 @@ class Resampling:
         U = r + (np.arange(num_particles) / float(num_particles))
 
         for u in U:
-            # print(u, c)
             while u > c:
                 i += 1
                 c += weights[i]
             X_bar_resampled.append(X_bar[i, :])
-            # print(i)
 
         return np.array(X_bar_resampled)
-        # return X_bar_resampled
+
 
 if __name__ == "__main__":
     pass
