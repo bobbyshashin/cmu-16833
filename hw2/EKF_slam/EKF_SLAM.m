@@ -11,9 +11,9 @@ clc;
 sig_x = 0.25;
 sig_y = 0.1;
 sig_alpha = 0.1;
+
 sig_beta = 0.01;
 sig_r = 0.08;
-
 %==== Generate sigma^2 from sigma ===
 sig_x2 = sig_x^2;
 sig_y2 = sig_y^2;
@@ -179,7 +179,21 @@ end
 landmark_ground_truth = [3 6 3 12 7 8 7 14 11 6 11 12];
 hold on;
 for i = 0:(k-1)
-    plot(landmark_ground_truth(i*2+1), landmark_ground_truth(i*2+2), '*b');
+    ix = i*2+1;
+    iy = i*2+2;
+    plot(landmark_ground_truth(ix), landmark_ground_truth(iy), '*b');
+    gt_x = landmark_ground_truth(ix);
+    gt_y = landmark_ground_truth(iy);
+    est_x = x(3 + ix);
+    est_y = x(3 + iy);
+    est_cov = P(3+ix:3+iy, 3+ix:3+iy);
+    
+    euclidean_dist = sqrt((gt_x - est_x)^2 + (gt_y - est_y)^2);
+    mahalanobis_dist = sqrt(([gt_x gt_y] - [est_x est_y]) * est_cov * ([gt_x;gt_y] - [est_x;est_y]));
+    
+    fprintf('Landmark %d\n', i+1);
+    fprintf('Euclidean = %f\n', euclidean_dist);
+    fprintf('Mahalanobis = %f\n\n', mahalanobis_dist);
 end
 
 
