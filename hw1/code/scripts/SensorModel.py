@@ -25,13 +25,12 @@ class SensorModel:
         # from right to left, 180 degrees, counter-clockwise
         self.laser_fov = 180
         self.laser_max = 8191
-        # self.laser_max = 8500
-        self.z_hit = 0.3
-        self.z_short = 0.298
-        self.z_max = 0.001
-        self.z_rand = 0.3
-        self.sigma_hit = 500
-        self.lambda_short = 1e-4
+        self.z_hit = 0.65
+        self.z_short = 0.1
+        self.z_max = 0.05
+        self.z_rand = 0.2
+        self.sigma_hit = 50
+        self.lambda_short = 0.1
 
         # if 0 <= occupancy_map[i][j] < 0.3, we may regard cell (i, j) as freespace
         self.occupied_threshold = 0.1
@@ -209,10 +208,10 @@ class SensorModel:
 
     def probHit(self, z_t, z_expected):
         if z_t >= 0 and z_t <= self.laser_max:
-            # normalizer = integrateGaussian(
-            #     z_expected, self.sigma_hit, 0.0, self.laser_max)
+            normalizer = integrateGaussian(
+                z_expected, self.sigma_hit, 0.0, self.laser_max)
             # print(normalizer)
-            normalizer = 1.0
+            # normalizer = 1.0
             return 1.0 / normalizer * calcGaussian(z_expected, self.sigma_hit, z_t)
         else:
             return 0
@@ -298,15 +297,16 @@ class SensorModel:
         z_expected_arr = self.rayCasting_vec(pose_laser_map)
 
         # q = 1.0
-        q = np.ones(num_particles).astype(float)
+        # q = np.ones(num_particles).astype(float)
+        q = np.zeros(num_particles).astype(float)
         n = int(self.laser_fov / self.resolution)
         for i in range(n):
             k = 0 + self.resolution * i
             z = z_t1_arr[k]
             z_expected = z_expected_arr[:,k]      # TODO: should use k here?
-            q = q * self.computeBelief_vec(z, z_expected)
+            q = q + np.log(self.computeBelief_vec(z, z_expected))
         # print(q)
-        return q, z_expected_arr
+        return -q, z_expected_arr
 
 
 if __name__ == '__main__':
